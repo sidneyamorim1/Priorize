@@ -66,6 +66,17 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const [dragOverColumn, setDragOverColumn] = useState<KanbanStatus | null>(null);
   const dragTaskId = useRef<string | null>(null);
 
+  const [columnColors, setColumnColors] = useState<Record<KanbanStatus, string | null>>(() => {
+    const saved = localStorage.getItem('kanban_column_colors');
+    return saved ? JSON.parse(saved) : { inicio: null, fazendo: null, encerrado: null };
+  });
+
+  const handleColorChange = (colId: KanbanStatus, color: string) => {
+    const newColors = { ...columnColors, [colId]: color };
+    setColumnColors(newColors);
+    localStorage.setItem('kanban_column_colors', JSON.stringify(newColors));
+  };
+
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
       const matchesSearch =
@@ -197,14 +208,28 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
               onDragLeave={handleDragLeave}
             >
               {/* Cabeçalho da coluna */}
-              <div className={`flex items-center justify-between rounded-xl bg-gradient-to-r ${col.headerClass} p-3.5 text-white shadow-sm`}>
+              <div
+                className={`flex items-center justify-between rounded-xl p-3.5 text-white shadow-sm relative group ${!columnColors[col.id] ? `bg-gradient-to-r ${col.headerClass}` : ''}`}
+                style={columnColors[col.id] ? { backgroundColor: columnColors[col.id] } : undefined}
+              >
                 <div className="flex items-center gap-2 font-semibold text-sm">
                   {col.icon}
                   {col.label}
                 </div>
-                <span className={`rounded-lg px-2.5 py-0.5 text-xs font-bold ${col.badgeClass}`}>
-                  {colTasks.length}
-                </span>
+                <div className="flex items-center gap-2">
+                  <label className="opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center p-1 hover:bg-white/20 rounded" title="Alterar cor da etapa">
+                    <input
+                      type="color"
+                      className="sr-only"
+                      value={columnColors[col.id] || '#ffffff'}
+                      onChange={(e) => handleColorChange(col.id, e.target.value)}
+                    />
+                    <div className="h-3.5 w-3.5 rounded-full border border-white" style={{ backgroundColor: columnColors[col.id] || 'transparent' }}></div>
+                  </label>
+                  <span className={`rounded-lg px-2.5 py-0.5 text-xs font-bold ${columnColors[col.id] ? 'bg-black/20 text-white' : col.badgeClass}`}>
+                    {colTasks.length}
+                  </span>
+                </div>
               </div>
 
               {/* Drop zone + cards */}

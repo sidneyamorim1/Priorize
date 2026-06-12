@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Trash2, Edit3, AlertCircle, GripVertical } from 'lucide-react';
+import { Calendar, Trash2, Edit3, AlertCircle, GripVertical, Play } from 'lucide-react';
 import type { Task, Category, Priority, KanbanStatus } from '../types';
 
 interface KanbanCardProps {
@@ -31,6 +31,7 @@ const formatDate = (dateString: string) => {
 export const KanbanCard: React.FC<KanbanCardProps> = ({
   task,
   category,
+  onMoveTask,
   onDeleteTask,
   onEditTask,
   onDragStart,
@@ -96,6 +97,15 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({
         </div>
 
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          {task.status === 'inicio' && (
+            <button
+              onClick={() => onMoveTask(task.id, 'fazendo')}
+              title="Iniciar Tarefa"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-brand-500 hover:bg-brand-50 hover:text-brand-600 transition-all"
+            >
+              <Play className="h-3.5 w-3.5 fill-current" />
+            </button>
+          )}
           <button
             onClick={() => onEditTask(task)}
             title="Editar"
