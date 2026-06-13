@@ -210,7 +210,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
               {/* Cabeçalho da coluna */}
               <div
                 className={`flex items-center justify-between rounded-xl p-3.5 text-white shadow-sm relative group ${!columnColors[col.id] ? `bg-gradient-to-r ${col.headerClass}` : ''}`}
-                style={columnColors[col.id] ? { backgroundColor: columnColors[col.id] } : undefined}
+                style={columnColors[col.id] ? { backgroundColor: columnColors[col.id] || undefined } : undefined}
               >
                 <div className="flex items-center gap-2 font-semibold text-sm">
                   {col.icon}
