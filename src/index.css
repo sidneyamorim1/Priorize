@@ -105,6 +105,11 @@ body {
 }
 
 /* Sticky Notes (Notas Adesivas) */
+.sticky-note-brand {
+  background-color: var(--color-brand-100);
+  border-color: var(--color-brand-500);
+  color: var(--color-brand-700);
+}
 .sticky-note-yellow {
   background-color: #fefca3;
   border-color: #fef08a;

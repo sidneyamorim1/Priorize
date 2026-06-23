@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Network, Plus, Calendar, ChevronDown, ChevronRight, CheckSquare, ZoomIn, ZoomOut, RefreshCw, FileDown, StickyNote, Palette, X, Layers } from 'lucide-react';
+import { Network, Plus, Calendar, ChevronDown, ChevronRight, CheckSquare, ZoomIn, ZoomOut, RefreshCw, FileDown, StickyNote, Palette, X, Layers, Bold, Italic, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import type { Task, Category, Priority } from '../types';
 
 interface MindMapViewProps {
@@ -22,7 +22,18 @@ interface StickyNote {
   text: string;
   x: number;
   y: number;
-  color: 'yellow' | 'green' | 'blue' | 'pink';
+  color: 'yellow' | 'green' | 'blue' | 'pink' | 'brand';
+  fontSize?: 'text-xs' | 'text-sm' | 'text-base' | 'text-lg';
+  bold?: boolean;
+  italic?: boolean;
+  align?: 'left' | 'center' | 'right';
+}
+
+interface MindMapHistoryState {
+  mindMapTitle: string;
+  rootColor: string;
+  rootFontSize: string;
+  stickyNotes: StickyNote[];
 }
 
 const priorityInfo = (priority: Priority) => {
@@ -132,6 +143,7 @@ export const MindMapView: React.FC<MindMapViewProps> = ({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0 });
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   const [mindMapTitle, setMindMapTitle] = useState(() => {
     return localStorage.getItem('priorize_mindmap_title') || 'Minhas Tarefas';
@@ -143,14 +155,126 @@ export const MindMapView: React.FC<MindMapViewProps> = ({
   const [rootFontSize, setRootFontSize] = useState<string>(() => {
     return localStorage.getItem('priorize_mindmap_root_font_size') || 'text-base';
   });
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  }, [mindMapTitle, rootFontSize]);
+
   const [showRootStyles, setShowRootStyles] = useState<boolean>(false);
   const [stickyNotes, setStickyNotes] = useState<StickyNote[]>(() => {
     const saved = localStorage.getItem('priorize_mindmap_stickies');
     return saved ? JSON.parse(saved) : [];
   });
+
+  const [undoStack, setUndoStack] = useState<MindMapHistoryState[]>([]);
+  const [redoStack, setRedoStack] = useState<MindMapHistoryState[]>([]);
+
+  const saveToHistory = (
+    currentTitle = mindMapTitle,
+    currentColor = rootColor,
+    currentFontSize = rootFontSize,
+    currentNotes = stickyNotes
+  ) => {
+    const snapshot: MindMapHistoryState = {
+      mindMapTitle: currentTitle,
+      rootColor: currentColor,
+      rootFontSize: currentFontSize,
+      stickyNotes: JSON.parse(JSON.stringify(currentNotes)),
+    };
+    setUndoStack((prev) => [...prev, snapshot]);
+    setRedoStack([]);
+  };
+
+  const handleUndo = () => {
+    if (undoStack.length === 0) return;
+    
+    const currentSnapshot: MindMapHistoryState = {
+      mindMapTitle,
+      rootColor,
+      rootFontSize,
+      stickyNotes: JSON.parse(JSON.stringify(stickyNotes)),
+    };
+    setRedoStack((prev) => [...prev, currentSnapshot]);
+
+    const previousSnapshot = undoStack[undoStack.length - 1];
+    setUndoStack((prev) => prev.slice(0, -1));
+
+    setMindMapTitle(previousSnapshot.mindMapTitle);
+    setRootColor(previousSnapshot.rootColor);
+    setRootFontSize(previousSnapshot.rootFontSize);
+    setStickyNotes(previousSnapshot.stickyNotes);
+
+    localStorage.setItem('priorize_mindmap_title', previousSnapshot.mindMapTitle);
+    localStorage.setItem('priorize_mindmap_root_color', previousSnapshot.rootColor);
+    localStorage.setItem('priorize_mindmap_root_font_size', previousSnapshot.rootFontSize);
+    localStorage.setItem('priorize_mindmap_stickies', JSON.stringify(previousSnapshot.stickyNotes));
+  };
+
+  const handleRedo = () => {
+    if (redoStack.length === 0) return;
+
+    const currentSnapshot: MindMapHistoryState = {
+      mindMapTitle,
+      rootColor,
+      rootFontSize,
+      stickyNotes: JSON.parse(JSON.stringify(stickyNotes)),
+    };
+    setUndoStack((prev) => [...prev, currentSnapshot]);
+
+    const nextSnapshot = redoStack[redoStack.length - 1];
+    setRedoStack((prev) => prev.slice(0, -1));
+
+    setMindMapTitle(nextSnapshot.mindMapTitle);
+    setRootColor(nextSnapshot.rootColor);
+    setRootFontSize(nextSnapshot.rootFontSize);
+    setStickyNotes(nextSnapshot.stickyNotes);
+
+    localStorage.setItem('priorize_mindmap_title', nextSnapshot.mindMapTitle);
+    localStorage.setItem('priorize_mindmap_root_color', nextSnapshot.rootColor);
+    localStorage.setItem('priorize_mindmap_root_font_size', nextSnapshot.rootFontSize);
+    localStorage.setItem('priorize_mindmap_stickies', JSON.stringify(nextSnapshot.stickyNotes));
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      const isInsideMindmap = activeEl && (
+        activeEl.closest('#mindmap-print-area') !== null ||
+        activeEl === document.body
+      );
+
+      if (!isInsideMindmap) return;
+
+      const isUndo = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey;
+      const isRedo = 
+        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z');
+
+      if (isUndo) {
+        e.preventDefault();
+        handleUndo();
+      } else if (isRedo) {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [undoStack, redoStack, mindMapTitle, rootColor, rootFontSize, stickyNotes]);
+
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
   const dragNoteOffset = useRef({ x: 0, y: 0 });
   const [colorPickerNoteId, setColorPickerNoteId] = useState<string | null>(null);
+  // Estado para panning (arrastar a visualização)
+  const [isPanning, setIsPanning] = useState(false);
+  const panStart = useRef({ x: 0, y: 0 });
 
   const handleZoomIn = () => {
     setZoom((prev) => Math.min(prev + 0.1, 2));
@@ -166,6 +290,7 @@ export const MindMapView: React.FC<MindMapViewProps> = ({
   };
 
   const handleAddStickyNote = () => {
+    saveToHistory();
     const newNote: StickyNote = {
       id: `sticky-${Date.now()}`,
       text: '',
@@ -184,24 +309,42 @@ export const MindMapView: React.FC<MindMapViewProps> = ({
     localStorage.setItem('priorize_mindmap_stickies', JSON.stringify(updated));
   };
 
-  const handleUpdateNoteColor = (id: string, color: 'yellow' | 'green' | 'blue' | 'pink') => {
+  const handleUpdateNoteColor = (id: string, color: 'yellow' | 'green' | 'blue' | 'pink' | 'brand') => {
+    saveToHistory();
     const updated = stickyNotes.map((n) => (n.id === id ? { ...n, color } : n));
     setStickyNotes(updated);
     localStorage.setItem('priorize_mindmap_stickies', JSON.stringify(updated));
   };
 
+  const handleUpdateNoteStyle = (id: string, styles: Partial<Omit<StickyNote, 'id' | 'text' | 'x' | 'y'>>) => {
+    saveToHistory();
+    const updated = stickyNotes.map((n) => (n.id === id ? { ...n, ...styles } : n));
+    setStickyNotes(updated);
+    localStorage.setItem('priorize_mindmap_stickies', JSON.stringify(updated));
+  };
+
   const handleDeleteNote = (id: string) => {
+    saveToHistory();
     const updated = stickyNotes.filter((n) => n.id !== id);
     setStickyNotes(updated);
     localStorage.setItem('priorize_mindmap_stickies', JSON.stringify(updated));
   };
 
+  const handleUpdateNotePosition = (id: string, x: number, y: number) => {
+    const updated = stickyNotes.map((n) => (n.id === id ? { ...n, x, y } : n));
+    setStickyNotes(updated);
+  };
+
   const handleNoteMouseDown = (e: React.MouseEvent, note: StickyNote) => {
     e.stopPropagation();
+    saveToHistory();
     setDraggingNoteId(note.id);
+    const container = containerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
     dragNoteOffset.current = {
-      x: e.clientX / zoom - note.x,
-      y: e.clientY / zoom - note.y,
+      x: (e.clientX - rect.left) / zoom - note.x,
+      y: (e.clientY - rect.top) / zoom - note.y,
     };
   };
 
@@ -211,34 +354,34 @@ export const MindMapView: React.FC<MindMapViewProps> = ({
     if (closestNode || target.closest('button') || target.closest('select') || target.closest('input') || target.closest('textarea')) {
       return;
     }
-    setIsDragging(true);
-    dragStart.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+    
+    // Inicia panning se for na área vazia (fundo)
+    setIsPanning(true);
+    panStart.current = { x: e.clientX, y: e.clientY };
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (draggingNoteId) {
-      const updatedNotes = stickyNotes.map((note) => {
-        if (note.id === draggingNoteId) {
-          return {
-            ...note,
-            x: e.clientX / zoom - dragNoteOffset.current.x,
-            y: e.clientY / zoom - dragNoteOffset.current.y,
-          };
-        }
-        return note;
-      });
-      setStickyNotes(updatedNotes);
-      return;
+    // Panning (arrasto do canvas completo estilo Figma)
+    if (isPanning) {
+      const dx = e.clientX - panStart.current.x;
+      const dy = e.clientY - panStart.current.y;
+      setPan((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+      panStart.current = { x: e.clientX, y: e.clientY };
     }
-
-    if (!isDragging) return;
-    setPan({
-      x: e.clientX - dragStart.current.x,
-      y: e.clientY - dragStart.current.y,
-    });
+    // Arrasto de notas adesivas
+    if (draggingNoteId) {
+      const container = containerRef.current;
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        const newX = (e.clientX - rect.left) / zoom - dragNoteOffset.current.x;
+        const newY = (e.clientY - rect.top) / zoom - dragNoteOffset.current.y;
+        handleUpdateNotePosition(draggingNoteId, newX, newY);
+      }
+    }
   };
 
   const handleMouseUp = () => {
+    setIsPanning(false);
     if (draggingNoteId) {
       localStorage.setItem('priorize_mindmap_stickies', JSON.stringify(stickyNotes));
       setDraggingNoteId(null);
@@ -437,19 +580,27 @@ export const MindMapView: React.FC<MindMapViewProps> = ({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onKeyDown={(e) => {
+          const target = e.target as HTMLElement;
+          if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.isContentEditable) {
+            return;
+          }
           if (e.code === 'Space' || e.key === ' ') {
             e.preventDefault();
             setSpaceActive(true);
           }
         }}
         onKeyUp={(e) => {
+          const target = e.target as HTMLElement;
+          if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.isContentEditable) {
+            return;
+          }
           if (e.code === 'Space' || e.key === ' ') {
             e.preventDefault();
             setSpaceActive(false);
           }
         }}
-        style={{ cursor: spaceActive ? 'pointer' : 'grab' }}
-        className={`w-full overflow-x-auto rounded-2xl border border-slate-100 bg-white p-6 min-h-[580px] flex flex-col justify-center shadow-sm relative select-none mindmap-grab ${
+        style={{ cursor: spaceActive ? 'pointer' : isPanning ? 'grabbing' : 'grab' }}
+        className={`w-full overflow-hidden rounded-2xl border border-slate-100 bg-white p-6 min-h-[580px] flex flex-col justify-center shadow-sm relative select-none mindmap-grab ${
           isDragging ? 'mindmap-grabbing' : ''
         }`}
       >
@@ -516,7 +667,7 @@ export const MindMapView: React.FC<MindMapViewProps> = ({
             style={{
               transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
               transformOrigin: 'center center',
-              transition: isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+              transition: (isDragging || isPanning || !!draggingNoteId) ? 'none' : 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
             }}
             className="relative flex items-center justify-between gap-12 py-16 mx-auto min-w-[980px] max-w-[1200px]"
           >
@@ -627,19 +778,43 @@ export const MindMapView: React.FC<MindMapViewProps> = ({
           <div className="flex flex-col items-center justify-center w-1/5 z-10 text-center relative">
             <div
               id="node-root"
-              className={`flex flex-col items-center justify-center rounded-3xl px-8 py-5.5 text-white shadow-xl border select-none relative ${rootColorInfo(rootColor)}`}
+              className={`flex flex-col items-center justify-center rounded-3xl px-6 py-3.5 text-white shadow-xl border select-none relative ${rootColorInfo(rootColor)}`}
             >
               <CheckSquare className="h-7 w-7 text-white/90 stroke-[2.5] mb-2" />
               
               {(() => {
                 const lines = mindMapTitle.split('\n');
                 const longestLine = Math.max(...lines.map((l) => l.length));
+                
+                // Lógica para medir largura proporcional ao tamanho da fonte
+                const getCharWidth = (size: string) => {
+                  switch (size) {
+                    case 'text-sm': return 7.5;
+                    case 'text-xl': return 13;
+                    case 'text-lg': return 11;
+                    case 'text-base':
+                    default:
+                      return 9.5;
+                  }
+                };
+                const charWidth = getCharWidth(rootFontSize);
+                const calculatedWidth = Math.min(Math.max(longestLine * charWidth + 20, 100), 240);
+
                 return (
                   <textarea
+                    ref={textareaRef}
                     value={mindMapTitle}
                     onChange={(e) => {
                       setMindMapTitle(e.target.value);
                       localStorage.setItem('priorize_mindmap_title', e.target.value);
+                    }}
+                    onFocus={() => {
+                      saveToHistory();
+                      setShowRootStyles(true);
+                    }}
+                    onBlur={() => {
+                      // Pequeno delay para permitir o clique nas opções do menu de estilo
+                      setTimeout(() => setShowRootStyles(false), 200);
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
@@ -647,13 +822,13 @@ export const MindMapView: React.FC<MindMapViewProps> = ({
                         e.currentTarget.blur();
                       }
                     }}
-                    rows={lines.length || 1}
+                    rows={1}
                     style={{ 
-                      width: '100%',
-                      maxWidth: '280px',
-                      resize: 'none'
+                      width: `${calculatedWidth}px`,
+                      resize: 'none',
+                      overflow: 'hidden'
                     }}
-                    className={`bg-transparent text-center font-bold text-white focus:outline-none focus:ring-0 focus-visible:outline-none rounded-lg px-2 py-0.5 max-w-[280px] w-full border-b border-dashed border-white/30 hover:border-b-white/60 focus:border-b-white/80 transition-all overflow-hidden block ${rootFontSizeClass(rootFontSize)}`}
+                    className={`bg-transparent text-center font-bold text-white focus:outline-none focus:ring-0 focus-visible:outline-none rounded-lg px-2 py-0.5 border-none transition-all overflow-hidden block ${rootFontSizeClass(rootFontSize)}`}
                     placeholder="Minhas Tarefas"
                   />
                 );
@@ -789,21 +964,28 @@ export const MindMapView: React.FC<MindMapViewProps> = ({
           </div>
 
           {/* NOTAS ADESIVAS (STICKY NOTES) */}
+          {/* NOTAS ADESIVAS (STICKY NOTES) */}
           {stickyNotes.map((note) => (
             <div
               key={note.id}
+              onMouseDown={(e) => {
+                const target = e.target as HTMLElement;
+                if (target.tagName !== 'TEXTAREA' && target.tagName !== 'BUTTON' && !target.closest('button')) {
+                  handleNoteMouseDown(e, note);
+                }
+              }}
               style={{
                 position: 'absolute',
                 transform: `translate(${note.x}px, ${note.y}px)`,
                 width: '180px',
-                zIndex: draggingNoteId === note.id ? 40 : 30
+                zIndex: draggingNoteId === note.id ? 40 : 30,
+                cursor: draggingNoteId === note.id ? 'grabbing' : 'grab'
               }}
               className={`sticky-note-paper sticky-note-${note.color} rounded-2xl border border-slate-100 bg-white p-5 shadow-sm hover:shadow-md hover:border-slate-200/80 transition-all duration-200`}
             >
-              {/* Cabeçalho da Nota Adesiva: Área de Arrasto */}
+              {/* Cabeçalho da Nota Adesiva */}
               <div
-                onMouseDown={(e) => handleNoteMouseDown(e, note)}
-                className="flex items-center justify-between cursor-grab active:cursor-grabbing border-b border-black/5 pb-1.5 mb-1.5 no-print"
+                className="flex items-center justify-between border-b border-black/5 pb-1.5 mb-1.5 no-print"
               >
                 {/* Botão de Excluir */}
                 <button
@@ -814,25 +996,112 @@ export const MindMapView: React.FC<MindMapViewProps> = ({
                 >
                   <X className="h-3 w-3" />
                 </button>
-                {/* Botão de Cor */}
+                {/* Botão de Formatação */}
                 <button
                   type="button"
-                  onClick={() => setColorPickerNoteId(note.id)}
-                  className="text-black/40 hover:text-black/80 transition-colors rounded p-0.5 hover:bg-black/5 cursor-pointer ml-1"
-                  title="Mudar cor da nota"
+                  onClick={() => setColorPickerNoteId(colorPickerNoteId === note.id ? null : note.id)}
+                  className={`text-black/40 hover:text-black/80 transition-colors rounded p-0.5 hover:bg-black/5 cursor-pointer ml-1 ${
+                    colorPickerNoteId === note.id ? 'bg-black/5 text-black/85' : ''
+                  }`}
+                  title="Formatar texto e cores"
                 >
                   <Palette className="h-3 w-3" />
                 </button>
                 {colorPickerNoteId === note.id && (
-                  <div className="absolute top-full left-0 mt-1 flex gap-1 bg-white p-1 rounded shadow-lg z-50">
-                    {(['yellow', 'green', 'blue', 'pink'] as const).map((c) => (
+                  <div
+                    className="absolute left-0 mt-2 flex flex-col gap-2.5 bg-white p-3 rounded-xl shadow-xl border border-slate-100 z-50 text-slate-700 w-52 select-none"
+                    style={
+                      note.y > (window.innerHeight - 300)
+                        ? { bottom: '100%', top: 'auto', marginBottom: '8px' }
+                        : { top: '100%', marginTop: '8px' }
+                    }
+                  >
+                    {/* Tamanho da Fonte */}
+                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider text-left">Tamanho da Fonte</div>
+                    <div className="grid grid-cols-4 gap-1">
+                      {(['text-xs', 'text-sm', 'text-base', 'text-lg'] as const).map((sz) => (
+                        <button
+                          key={sz}
+                          type="button"
+                          onClick={() => {
+                            handleUpdateNoteStyle(note.id, { fontSize: sz });
+                          }}
+                          className={`text-[9px] font-bold py-1 px-1.5 rounded border border-slate-200 hover:bg-slate-50 transition-colors uppercase cursor-pointer ${
+                            (note.fontSize || 'text-xs') === sz ? 'bg-brand-50 border-brand-300 text-brand-750 font-extrabold' : 'text-slate-500'
+                          }`}
+                        >
+                          {sz === 'text-xs' ? 'P' : sz === 'text-sm' ? 'M' : sz === 'text-base' ? 'G' : 'GG'}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Estilo de Texto */}
+                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider text-left">Estilo</div>
+                    <div className="flex gap-1.5 items-center">
                       <button
-                        key={c}
                         type="button"
-                        onClick={() => { handleUpdateNoteColor(note.id, c); setColorPickerNoteId(null); }}
-                        className={`w-5 h-5 rounded-full border border-slate-200 ${c === 'yellow' ? 'bg-yellow-200' : c === 'green' ? 'bg-green-200' : c === 'blue' ? 'bg-blue-200' : 'bg-pink-200'}`}
-                      />
-                    ))}
+                        onClick={() => handleUpdateNoteStyle(note.id, { bold: !note.bold })}
+                        className={`w-7 h-7 rounded border border-slate-200 hover:bg-slate-50 flex items-center justify-center transition-all cursor-pointer font-bold ${
+                          note.bold ? 'bg-brand-50 border-brand-300 text-brand-750 font-extrabold' : 'text-slate-550'
+                        }`}
+                        title="Negrito"
+                      >
+                        <Bold className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateNoteStyle(note.id, { italic: !note.italic })}
+                        className={`w-7 h-7 rounded border border-slate-200 hover:bg-slate-50 flex items-center justify-center transition-all cursor-pointer italic ${
+                          note.italic ? 'bg-brand-50 border-brand-300 text-brand-750 font-extrabold' : 'text-slate-550'
+                        }`}
+                        title="Itálico"
+                      >
+                        <Italic className="w-3.5 h-3.5" />
+                      </button>
+
+                      <div className="w-px h-6 bg-slate-100 mx-0.5" />
+
+                      {(['left', 'center', 'right'] as const).map((align) => (
+                        <button
+                          key={align}
+                          type="button"
+                          onClick={() => handleUpdateNoteStyle(note.id, { align })}
+                          className={`w-7 h-7 rounded border border-slate-200 hover:bg-slate-50 flex items-center justify-center transition-all cursor-pointer ${
+                            (note.align || 'left') === align ? 'bg-brand-50 border-brand-300 text-brand-750 font-extrabold' : 'text-slate-550'
+                          }`}
+                          title={`Alinhar à ${align === 'left' ? 'esquerda' : align === 'center' ? 'centro' : 'direita'}`}
+                        >
+                          {align === 'left' ? <AlignLeft className="w-3.5 h-3.5" /> :
+                           align === 'center' ? <AlignCenter className="w-3.5 h-3.5" /> :
+                           <AlignRight className="w-3.5 h-3.5" />}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Cores da Nota */}
+                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider text-left">Cores do Tema</div>
+                    <div className="flex gap-1.5 justify-start">
+                      {(['yellow', 'green', 'blue', 'pink', 'brand'] as const).map((c) => {
+                        const colorInfo = {
+                          yellow: { bg: '#fefca3', border: '#eab308' },
+                          green: { bg: '#e6fcf0', border: '#22c55e' },
+                          blue: { bg: '#ecf3fe', border: '#3b82f6' },
+                          pink: { bg: '#fdf2f8', border: '#ec4899' },
+                          brand: { bg: '#e0f2fe', border: '#0ea5e9' }
+                        }[c];
+                        return (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => { handleUpdateNoteColor(note.id, c); }}
+                            style={{ backgroundColor: colorInfo.bg, borderColor: colorInfo.border }}
+                            className={`w-5 h-5 rounded-full border hover:scale-110 transition-transform cursor-pointer ${
+                              note.color === c ? 'ring-2 ring-offset-1 ring-brand-500' : ''
+                            }`}
+                          />
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
@@ -841,9 +1110,23 @@ export const MindMapView: React.FC<MindMapViewProps> = ({
               <textarea
                 value={note.text}
                 onChange={(e) => handleUpdateNoteText(note.id, e.target.value)}
+                onFocus={() => setColorPickerNoteId(note.id)}
+                onBlur={() => {
+                  // Pequeno delay para permitir o clique nas opções do menu de estilo da nota
+                  setTimeout(() => {
+                    setColorPickerNoteId((current) => (current === note.id ? null : current));
+                  }, 200);
+                }}
                 placeholder="Escreva uma nota..."
                 rows={4}
-                className="bg-transparent border-none outline-none resize-none w-full text-xs font-semibold focus:ring-0 placeholder-black/35 leading-normal text-slate-800"
+                style={{
+                  textAlign: note.align || 'left',
+                  fontWeight: note.bold ? 'bold' : 'normal',
+                  fontStyle: note.italic ? 'italic' : 'normal',
+                }}
+                className={`bg-transparent border-none outline-none resize-none w-full font-semibold focus:ring-0 placeholder-black/35 leading-normal text-slate-800 ${
+                  note.fontSize || 'text-xs'
+                }`}
               />
             </div>
           ))}
