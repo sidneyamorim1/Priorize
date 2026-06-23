@@ -73,6 +73,23 @@ const rootColorInfo = (color: string) => {
   }
 };
 
+// Helper para cor da bolinha no nó central
+const rootColorDotClass = (color: string) => {
+  switch (color) {
+    case 'emerald':
+      return 'bg-emerald-500';
+    case 'purple':
+      return 'bg-purple-500';
+    case 'pink':
+      return 'bg-pink-500';
+    case 'dark':
+      return 'bg-slate-700';
+    case 'blue':
+    default:
+      return 'bg-brand-500';
+  }
+};
+
 // Helper para mapear classes de tamanho de fonte do nó central
 const rootFontSizeClass = (size: string) => {
   switch (size) {
@@ -101,7 +118,17 @@ export const MindMapView: React.FC<MindMapViewProps> = ({
   const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
   const [hoveredTask, setHoveredTask] = useState<string | null>(null);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  const [spaceActive, setSpaceActive] = useState(false);
   const [zoom, setZoom] = useState(1);
+
+  // Update body cursor when space is active for global effect
+  useEffect(() => {
+    if (spaceActive) {
+      document.body.style.cursor = 'pointer';
+    } else {
+      document.body.style.cursor = '';
+    }
+  }, [spaceActive]);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0 });
@@ -403,17 +430,48 @@ export const MindMapView: React.FC<MindMapViewProps> = ({
       {/* Workspace do Mapa Mental (Aesthetics: Ampliado e Centralizado) */}
       <div 
         id="mindmap-print-area"
+        tabIndex={0}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onKeyDown={(e) => {
+          if (e.code === 'Space' || e.key === ' ') {
+            e.preventDefault();
+            setSpaceActive(true);
+          }
+        }}
+        onKeyUp={(e) => {
+          if (e.code === 'Space' || e.key === ' ') {
+            e.preventDefault();
+            setSpaceActive(false);
+          }
+        }}
+        style={{ cursor: spaceActive ? 'pointer' : 'grab' }}
         className={`w-full overflow-x-auto rounded-2xl border border-slate-100 bg-white p-6 min-h-[580px] flex flex-col justify-center shadow-sm relative select-none mindmap-grab ${
           isDragging ? 'mindmap-grabbing' : ''
         }`}
       >
         
         {/* Painel de Controle de Zoom Flutuante (Aesthetics: Glassmorphism) */}
-        <div className="absolute bottom-6 right-6 z-20 flex items-center gap-2 rounded-xl border border-slate-100 bg-white/85 backdrop-blur-md p-1.5 shadow-lg select-none no-print">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-xl border border-slate-100 bg-white/85 backdrop-blur-md p-1.5 shadow-lg select-none no-print">
+          <button
+            type="button"
+            onClick={handleAddStickyNote}
+            title="Adicionar Nota"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 active:scale-95 transition-all cursor-pointer border-r border-slate-100 pr-2"
+          >
+            <StickyNote className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowRootStyles(!showRootStyles)}
+            title="Estilizar"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 active:scale-95 transition-all cursor-pointer"
+          >
+            <Palette className="h-4 w-4" />
+          </button>
+          <div className="h-4 w-px bg-slate-200 mx-1" />
           <button
             type="button"
             onClick={handleZoomOut}
@@ -568,9 +626,10 @@ export const MindMapView: React.FC<MindMapViewProps> = ({
           <div className="flex flex-col items-center justify-center w-1/5 z-10 text-center relative">
             <div
               id="node-root"
-              className={`flex flex-col items-center justify-center rounded-3xl px-8 py-5.5 text-white shadow-xl border select-none ${rootColorInfo(rootColor)}`}
+              className={`flex flex-col items-center justify-center rounded-3xl px-8 py-5.5 text-white shadow-xl border select-none relative ${rootColorInfo(rootColor)}`}
             >
               <CheckSquare className="h-7 w-7 text-white/90 stroke-[2.5] mb-2" />
+              
               {(() => {
                 const lines = mindMapTitle.split('\n');
                 const longestLine = Math.max(...lines.map((l) => l.length));
@@ -754,21 +813,7 @@ export const MindMapView: React.FC<MindMapViewProps> = ({
                 onMouseDown={(e) => handleNoteMouseDown(e, note)}
                 className="flex items-center justify-between cursor-grab active:cursor-grabbing border-b border-black/5 pb-1.5 mb-1.5 no-print"
               >
-                {/* Seletor de Cores da Nota */}
-                <div className="flex gap-1">
-                  {(['yellow', 'green', 'blue', 'pink'] as const).map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => handleUpdateNoteColor(note.id, c)}
-                      className={`w-2.5 h-2.5 rounded-full border border-black/10 hover:scale-110 transition-transform cursor-pointer ${
-                        c === 'yellow' ? 'bg-yellow-300 border-yellow-400' :
-                        c === 'green' ? 'bg-green-300 border-green-400' :
-                        c === 'blue' ? 'bg-blue-300 border-blue-400' : 'bg-pink-300 border-pink-400'
-                      } ${note.color === c ? 'ring-1 ring-offset-0.2 ring-black/40' : ''}`}
-                    />
-                  ))}
-                </div>
+
                 
                 {/* Botão de Excluir */}
                 <button
