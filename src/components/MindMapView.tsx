@@ -589,10 +589,11 @@ export const MindMapView: React.FC<MindMapViewProps> = ({
                     }}
                     rows={lines.length || 1}
                     style={{ 
-                      width: `${Math.max(longestLine + 1, 10)}ch`,
+                      width: '100%',
+                      maxWidth: '280px',
                       resize: 'none'
                     }}
-                    className={`bg-transparent text-center font-bold text-white focus:outline-none focus:ring-0 focus-visible:outline-none rounded-lg px-2 py-0.5 max-w-[280px] border-b border-dashed border-white/30 hover:border-b-white/60 focus:border-b-white/80 transition-all overflow-hidden block ${rootFontSizeClass(rootFontSize)}`}
+                    className={`bg-transparent text-center font-bold text-white focus:outline-none focus:ring-0 focus-visible:outline-none rounded-lg px-2 py-0.5 max-w-[280px] w-full border-b border-dashed border-white/30 hover:border-b-white/60 focus:border-b-white/80 transition-all overflow-hidden block ${rootFontSizeClass(rootFontSize)}`}
                     placeholder="Minhas Tarefas"
                   />
                 );
@@ -746,7 +747,7 @@ export const MindMapView: React.FC<MindMapViewProps> = ({
                 width: '180px',
                 zIndex: draggingNoteId === note.id ? 40 : 30
               }}
-              className={`sticky-note-paper sticky-note-${note.color} rounded-xl border p-3 flex flex-col group select-none`}
+              className={`sticky-note-paper sticky-note-${note.color} rounded-2xl border border-slate-100 bg-white p-5 shadow-sm hover:shadow-md hover:border-slate-200/80 transition-all duration-200`}
             >
               {/* Cabeçalho da Nota Adesiva: Área de Arrasto */}
               <div
