@@ -150,6 +150,7 @@ export const MindMapView: React.FC<MindMapViewProps> = ({
   });
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
   const dragNoteOffset = useRef({ x: 0, y: 0 });
+  const [colorPickerNoteId, setColorPickerNoteId] = useState<string | null>(null);
 
   const handleZoomIn = () => {
     setZoom((prev) => Math.min(prev + 0.1, 2));
@@ -661,16 +662,7 @@ export const MindMapView: React.FC<MindMapViewProps> = ({
                 {tasks.filter((t) => t.status !== 'encerrado').length} pendentes / {tasks.length} totais
               </p>
               
-              <div className="flex items-center gap-1.5 mt-2 no-print">
-                <button
-                  type="button"
-                  onClick={() => setShowRootStyles(!showRootStyles)}
-                  className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white/90 transition-all hover:scale-105 active:scale-95 cursor-pointer"
-                  title="Personalizar nó central"
-                >
-                  <Palette className="h-3.5 w-3.5" />
-                </button>
-              </div>
+              
 
               {showRootStyles && (
                 <div className="absolute top-[102%] z-30 flex flex-col gap-2.5 rounded-xl border border-slate-100 bg-white p-3.5 shadow-lg select-none no-print w-48 text-slate-700 font-sans">
@@ -813,8 +805,6 @@ export const MindMapView: React.FC<MindMapViewProps> = ({
                 onMouseDown={(e) => handleNoteMouseDown(e, note)}
                 className="flex items-center justify-between cursor-grab active:cursor-grabbing border-b border-black/5 pb-1.5 mb-1.5 no-print"
               >
-
-                
                 {/* Botão de Excluir */}
                 <button
                   type="button"
@@ -824,6 +814,27 @@ export const MindMapView: React.FC<MindMapViewProps> = ({
                 >
                   <X className="h-3 w-3" />
                 </button>
+                {/* Botão de Cor */}
+                <button
+                  type="button"
+                  onClick={() => setColorPickerNoteId(note.id)}
+                  className="text-black/40 hover:text-black/80 transition-colors rounded p-0.5 hover:bg-black/5 cursor-pointer ml-1"
+                  title="Mudar cor da nota"
+                >
+                  <Palette className="h-3 w-3" />
+                </button>
+                {colorPickerNoteId === note.id && (
+                  <div className="absolute top-full left-0 mt-1 flex gap-1 bg-white p-1 rounded shadow-lg z-50">
+                    {(['yellow', 'green', 'blue', 'pink'] as const).map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => { handleUpdateNoteColor(note.id, c); setColorPickerNoteId(null); }}
+                        className={`w-5 h-5 rounded-full border border-slate-200 ${c === 'yellow' ? 'bg-yellow-200' : c === 'green' ? 'bg-green-200' : c === 'blue' ? 'bg-blue-200' : 'bg-pink-200'}`}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
               
               {/* Área de Texto da Nota Adesiva */}
