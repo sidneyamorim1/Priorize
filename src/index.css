@@ -103,3 +103,35 @@ body {
     display: none !important;
   }
 }
+
+/* Sticky Notes (Notas Adesivas) */
+.sticky-note-yellow {
+  background-color: #fefca3;
+  border-color: #fef08a;
+  color: #713f12;
+}
+.sticky-note-green {
+  background-color: #e6fcf0;
+  border-color: #bbf7d0;
+  color: #14532d;
+}
+.sticky-note-blue {
+  background-color: #ecf3fe;
+  border-color: #bfdbfe;
+  color: #1e3a8a;
+}
+.sticky-note-pink {
+  background-color: #fdf2f8;
+  border-color: #fbcfe8;
+  color: #831843;
+}
+
+.sticky-note-paper {
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04), 0 2px 4px rgba(0, 0, 0, 0.02), 0 8px 16px rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sticky-note-paper:hover {
+  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.08), 0 4px 8px rgba(0, 0, 0, 0.04);
+}
+
